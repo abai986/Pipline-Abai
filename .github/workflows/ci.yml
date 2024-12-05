@@ -1,0 +1,38 @@
+name: CI/CD Pipeline
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: postgres:latest
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_PASSWORD: example
+          
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v1
+        
+      - name: Set up Docker Compose
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker-compose
+          
+      - name: Build Docker image
+        run: docker build -t my-app -f my-app/Dockerfile  my-app/
+
+      - name: Deploy to staging
+        if: github.ref == 'refs/heads/main'
+        run: docker-compose -f my-app/docker-compose.staging.yml up -d
+  
+      - name: Notify team
+        run: |
+          curl -X POST -H "Content-type: application/json" --data '{"text":"Deployment to staging successful!"}' ${{ secrets.SLACK_WEBHOOK_URL }}
